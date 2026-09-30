@@ -1,0 +1,13 @@
+{
+  "name": "agent-chrome",
+  "version": "0.2.0",
+  "description": "Let Claude drive copies of your signed-in Chrome profiles in background windows that never take focus (macOS).",
+  "author": {
+    "name": "rav4nn",
+    "url": "https://github.com/rav4nn"
+  },
+  "homepage": "https://github.com/rav4nn/agent-chrome",
+  "repository": "https://github.com/rav4nn/agent-chrome",
+  "license": "MIT",
+  "keywords": ["chrome", "browser", "chrome-devtools-mcp", "mcp", "macos"]
+}

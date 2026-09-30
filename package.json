@@ -1,11 +1,25 @@
 {
-  "name": "chrome-pipe-proxy",
-  "version": "0.1.0",
-  "description": "Multi-client WebSocket front for a single pipe-connected Chrome — bypasses chrome-devtools-mcp#1254 macOS focus theft",
+  "name": "agent-chrome",
+  "version": "0.2.0",
+  "description": "Let Claude Code drive copies of your signed-in Chrome profiles in background windows that never take focus (macOS)",
   "type": "module",
   "main": "pipe-cdp-proxy.mjs",
+  "bin": {
+    "agent-chrome": "bin/agent-chrome.mjs"
+  },
   "scripts": {
-    "start": "node pipe-cdp-proxy.mjs"
+    "start": "node pipe-cdp-proxy.mjs",
+    "test": "node --test test/cli.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rav4nn/agent-chrome.git"
+  },
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=18.3"
   },
   "dependencies": {
     "ws": "^8.20.0"

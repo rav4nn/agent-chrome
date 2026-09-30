@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agent-chrome",
+  "description": "agent-chrome: Claude Code drives your signed-in Chrome profiles without stealing focus (macOS).",
+  "owner": {
+    "name": "rav4nn",
+    "url": "https://github.com/rav4nn"
+  },
+  "plugins": [
+    {
+      "name": "agent-chrome",
+      "source": "./",
+      "description": "Set up copies of your signed-in Chrome profiles for Claude Code, in background windows that never take focus.",
+      "category": "productivity"
+    }
+  ]
+}
