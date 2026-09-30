@@ -44,6 +44,7 @@ const USER_DATA_DIR = getArg(
     '--user-data-dir',
     `${process.env.HOME}/Library/Application Support/Chrome-Pipe-Proxy`
 );
+const PROFILE_DIR = getArg('--profile-directory', 'Default');
 
 // ═══════════════════════════════════════════
 // Chrome process management
@@ -53,7 +54,29 @@ let chromeProcess = null;
 let chromeWritable = null;     // fd 3: parent → Chrome
 let chromeReadable = null;     // fd 4: Chrome → parent
 let chromeBuffer = Buffer.alloc(0);
-let restartTimer = null;
+let chromeReady = null;        // promise shared by everyone waiting for a lazy launch
+
+// Launch Chrome on first use; resolves once the pipe answers and discovery is on.
+// Only the user closes Chrome. Only a command that opens a tab or context launches it:
+// a client that reconnects after a quit (discovery, listing) must not bring it back.
+const LAUNCH_METHODS = new Set(['Target.createTarget', 'Target.createBrowserContext']);
+function ensureChrome() {
+    if (chromeWritable && chromeReady) return chromeReady;
+    launchChrome();
+    const ready = chromeReady = (async () => {
+        for (let i = 0; i < 40; i++) {
+            try { await cdpRequest('Browser.getVersion'); break; }
+            catch { await new Promise((r) => setTimeout(r, 250)); }
+        }
+        await enableProxyDiscovery();
+    })();
+    // A late failure from an earlier launch must not clear a newer launch's promise.
+    ready.catch((e) => {
+        console.error('[Proxy] Chrome start failed:', e.message);
+        if (chromeReady === ready) chromeReady = null;
+    });
+    return ready;
+}
 
 function launchChrome() {
     if (chromeProcess) return;
@@ -61,10 +84,19 @@ function launchChrome() {
 
     chromeProcess = spawn(CHROME_PATH, [
         `--user-data-dir=${USER_DATA_DIR}`,
+        `--profile-directory=${PROFILE_DIR}`,
         '--remote-debugging-pipe',
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-features=DialMediaRouteProvider',
+        '--disable-extensions',
+        '--disable-blink-features=AutomationControlled',
+        // The window sits behind the user's apps; keep its pages running at full speed.
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-background-timer-throttling',
+        // No window at launch: the first tab opens a background window (see createTarget).
+        '--no-startup-window',
     ], {
         stdio: ['ignore', 'ignore', 'inherit', 'pipe', 'pipe'],
     });
@@ -83,38 +115,17 @@ function launchChrome() {
         console.error(
             `[Proxy] Chrome exited (code=${code}, signal=${signal}, lived ${lifetime}ms)`
         );
-        const wasRunning = chromeProcess !== null;
+        chromeReady = null;
         chromeProcess = null;
         chromeWritable = null;
         chromeReadable = null;
         chromeBuffer = Buffer.alloc(0);
         knownTargets.clear();
         knownSessions.clear();
-        for (const [, req] of pendingRequests) {
-            safeSend(req.clientWs, {
-                id: req.originalId,
-                error: { code: -32000, message: 'Chrome exited' },
-            });
-        }
         pendingRequests.clear();
-        // Don't auto-restart Chrome that died too fast — it's a config error,
-        // not a transient failure. Looping would spam windows / processes.
-        if (lifetime < 3000) {
-            console.error(
-                '[Proxy] Chrome died too fast; not auto-restarting (likely a launch-flag/profile error)'
-            );
-            return;
-        }
-        if (wasRunning && !restartTimer) {
-            restartTimer = setTimeout(() => {
-                restartTimer = null;
-                launchChrome();
-                // Give Chrome a beat to come up before re-enabling discovery.
-                setTimeout(() => enableProxyDiscovery().catch((e) =>
-                    console.error('[Proxy] Failed to re-enable discovery after restart:', e.message)
-                ), 500);
-            }, 2000);
-        }
+        // No auto-restart: the user quit Chrome or it crashed. Drop clients so their
+        // browser handle goes stale and they reconnect on the next call (no launch).
+        for (const [ws] of clientState) ws.close();
     });
 
     chromeProcess.on('error', (err) =>
@@ -253,7 +264,7 @@ setInterval(() => {
 // Internal CDP request (proxy-initiated, used for discovery setup + HTTP endpoints)
 // ═══════════════════════════════════════════
 
-function cdpRequest(method, params = {}) {
+function cdpRequest(method, params = {}, sessionId) {
     return new Promise((resolve, reject) => {
         if (!chromeWritable) return reject(new Error('Chrome not running'));
         const proxyId = globalIdCounter++;
@@ -274,7 +285,7 @@ function cdpRequest(method, params = {}) {
             method,
             createdAt: Date.now(),
         });
-        sendToChrome({ id: proxyId, method, params });
+        sendToChrome({ id: proxyId, method, params, sessionId });
     });
 }
 
@@ -397,26 +408,25 @@ wss.on('connection', (clientWs) => {
     const state = getOrCreateState(clientWs);
     console.log(`[Proxy] Client connected (total: ${clientState.size})`);
 
+    // Handle each client's messages in arrival order, even across awaits.
+    let queue = Promise.resolve();
     clientWs.on('message', (data) => {
-        if (!chromeWritable) {
-            try {
-                const msg = JSON.parse(data.toString());
-                if (msg.id !== undefined) {
-                    safeSend(clientWs, {
-                        id: msg.id,
-                        error: { code: -1, message: 'Chrome not running' },
-                    });
-                }
-            } catch (_) { /* ignore */ }
-            return;
-        }
+        queue = queue.then(() => handleMessage(data))
+            .catch((e) => console.error('[Proxy] Client message failed:', e.message));
+    });
 
+    async function handleMessage(data) {
         let msg;
         try {
             msg = JSON.parse(data.toString());
         } catch (e) {
             console.error('[Proxy] Bad client message:', e.message);
             return;
+        }
+        if (!msg || typeof msg !== 'object') return;
+
+        if (chromeProcess || LAUNCH_METHODS.has(msg.method)) {
+            await ensureChrome().catch(() => {});
         }
 
         // Intercept discovery + auto-attach so each client gets a fresh stream
@@ -448,6 +458,31 @@ wss.on('connection', (clientWs) => {
             return;
         }
 
+        // Chrome is down: let a connect succeed with no contexts, refuse the rest.
+        if (!chromeWritable) {
+            if (msg.id === undefined) return;
+            safeSend(clientWs, msg.method === 'Target.getBrowserContexts'
+                ? { id: msg.id, result: { browserContextIds: [] } }
+                : { id: msg.id, error: { code: -1, message: 'Chrome not running' } });
+            return;
+        }
+
+        // Keep Chrome from activating: foreground tabs and bringToFront pull
+        // Chrome.app forward and switch macOS Spaces even over the pipe.
+        if (msg.method === 'Page.bringToFront') {
+            if (msg.id !== undefined) safeSend(clientWs, { id: msg.id, result: {}, sessionId: msg.sessionId });
+            return;
+        }
+        if (msg.method === 'Target.createTarget') {
+            const hasPage = [...knownTargets.values()].some((t) => t.type === 'page');
+            msg.params = { ...msg.params, background: true, newWindow: !hasPage };
+        }
+        // Tabs are shared: an earlier client may already have Runtime enabled on this
+        // session, and a repeat enable reports no execution contexts. Reset it first.
+        if (msg.method === 'Runtime.enable' && msg.sessionId) {
+            await cdpRequest('Runtime.disable', {}, msg.sessionId).catch(() => {});
+        }
+
         // ID remap so multiple clients don't collide on Chrome's request IDs.
         const origId = msg.id;
         if (msg.id !== undefined) {
@@ -464,7 +499,7 @@ wss.on('connection', (clientWs) => {
 
         dbg('→ Chrome', `${msg.method}${msg.sessionId ? ' sess=' + msg.sessionId.substring(0, 8) : ''} (cid=${origId} pid=${msg.id})`);
         sendToChrome(msg);
-    });
+    }
 
     const cleanup = () => {
         for (const pid of state.proxyIds) pendingRequests.delete(pid);
@@ -496,10 +531,5 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 server.listen(PROXY_PORT, '127.0.0.1', () => {
-    console.log(`[Proxy] Listening on http://127.0.0.1:${PROXY_PORT}`);
-    launchChrome();
-    // Wait a beat for Chrome to come up before enabling discovery.
-    setTimeout(() => enableProxyDiscovery().catch((e) =>
-        console.error('[Proxy] Failed to enable discovery on boot:', e.message)
-    ), 500);
+    console.log(`[Proxy] Listening on http://127.0.0.1:${PROXY_PORT} (Chrome starts on first new tab)`);
 });
