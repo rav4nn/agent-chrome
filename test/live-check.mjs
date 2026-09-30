@@ -30,13 +30,14 @@ const { puppeteer } = await import(pathToFileURL(puppeteerPath).href);
 const browserURL = `http://127.0.0.1:${port}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const status = async () => (await fetch(`${browserURL}/proxy/status`)).json();
-const front = () => execFileSync('osascript', ['-e',
-    'tell application "System Events" to return (name of first process whose frontmost is true)'],
-{ encoding: 'utf8' }).trim();
+// Compare pids, not app names: the user's own Chrome has the same name, and the user may
+// switch apps during the check.
+const frontPid = () => Number(execFileSync('osascript', ['-e',
+    'tell application "System Events" to return unix id of (first process whose frontmost is true)'],
+{ encoding: 'utf8' }).trim());
 const connect = () => puppeteer.connect({ browserURL, defaultViewport: null, handleDevToolsAsPage: true });
 
 assert.equal((await status()).chromeRunning, false, 'close this Chrome before the check');
-const app = front();
 
 let browser = await connect();
 assert.equal((await browser.pages()).length, 0);
@@ -45,9 +46,10 @@ assert.equal((await status()).chromeRunning, false, 'connect launched Chrome');
 console.log('ok 1: connect without launch');
 
 await browser.newPage({ background: true });
-assert.equal((await status()).chromeRunning, true, 'new tab did not launch Chrome');
-assert.equal(front(), app, 'launch took focus');
-console.log(`ok 2: new tab launched Chrome, front app still ${app}`);
+const { chromeRunning, chromePid } = await status();
+assert.equal(chromeRunning, true, 'new tab did not launch Chrome');
+for (let i = 0; i < 5; i++, await sleep(300)) assert.notEqual(frontPid(), chromePid, 'launch took focus');
+console.log('ok 2: new tab launched Chrome, and it never became the front app');
 
 // The user quits Chrome while the first client stays connected.
 const gone = new Promise((r) => browser.once('disconnected', r));
