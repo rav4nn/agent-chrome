@@ -124,6 +124,8 @@ The plugin's skill tells Claude all of this.
 - macOS only.
 - A copy doesn't pick up new sign-ins from your real profile. Sign in inside the agent window, or quit Chrome and run `add <profile> --recopy`.
 - Each open agent window is a separate Chrome. A fresh one with one simple page uses about 500 MB. Heavy sites and long uptime add more: one with Gmail open for a day measured 1.6 GB. Quit the window to free it.
+- Sync stays on in the copy for everything that `add` doesn't turn off (step 3 above), such as passwords, bookmarks, autofill and settings. A password or bookmark that an agent saves in the agent window reaches your real Google account.
+- Extensions are off in the agent window, so a password manager extension doesn't fill sign-in forms there. Sign in by hand once, or let Chrome's own password manager fill them.
 - Playwright's `connectOverCDP` doesn't work through the proxy. Use chrome-devtools-mcp.
 - Sessions are shared by design. Two Claude sessions that enable Runtime on the same tab at the same moment can race.
 
