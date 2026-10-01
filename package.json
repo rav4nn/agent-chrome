@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node pipe-cdp-proxy.mjs",
-    "test": "node --test test/cli.test.mjs"
+    "test": "node --test test/cli.test.mjs test/proxy-guard.test.mjs"
   },
   "repository": {
     "type": "git",

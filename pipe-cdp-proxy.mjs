@@ -330,7 +330,23 @@ function replayAutoAttachToClient(clientWs) {
 // HTTP discovery endpoints
 // ═══════════════════════════════════════════
 
+// Whoever connects controls a signed-in browser, so accept local tools only, like Chrome
+// does for its own debug port. Browsers send an Origin header on every WebSocket, so a web
+// page that targets 127.0.0.1 is refused. A Host check stops DNS rebinding (a page on a
+// domain that resolves to 127.0.0.1). chrome-devtools-mcp and Puppeteer send no Origin.
+const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+function isLocalTool(req) {
+    let hostname;
+    try { hostname = new URL(`http://${req.headers.host}`).hostname; } catch { return false; }
+    return LOCAL_HOSTNAMES.has(hostname) && req.headers.origin === undefined;
+}
+
 const server = http.createServer(async (req, res) => {
+    if (!isLocalTool(req)) {
+        res.writeHead(403);
+        res.end('Forbidden: local tools only');
+        return;
+    }
     try {
         if (req.url === '/json/version') {
             // Mimic Chrome's /json/version so chrome-devtools-mcp's --browserUrl probe succeeds
@@ -402,7 +418,7 @@ const server = http.createServer(async (req, res) => {
 // WebSocket server (CDP traffic from MCP clients)
 // ═══════════════════════════════════════════
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, verifyClient: ({ req }) => isLocalTool(req) });
 
 wss.on('connection', (clientWs) => {
     const state = getOrCreateState(clientWs);

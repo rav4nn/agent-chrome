@@ -96,13 +96,14 @@ The plugin's skill tells Claude all of this.
 - The proxy sends `Runtime.disable` before a client's `Runtime.enable` on a shared tab, so a later session can take over a tab an earlier one left open.
 - Each client's messages keep their order across the launch wait, and a malformed message no longer stops the queue.
 - Chrome launches with no extensions, no startup window and no throttling of a window that sits behind other apps.
+- Local tools only. Whoever connects controls a signed-in browser, so the proxy refuses any request with an `Origin` header (browsers send one, so a web page can't connect to `127.0.0.1`) and any `Host` other than `127.0.0.1`, `localhost` or `[::1]` (DNS rebinding). Upstream accepted both. Other programs on your Mac can still connect, the same as with Chrome's own debug port.
 - The setup CLI, the Claude Code plugin and skill, and tests are new.
 
 ## Limits
 
 - macOS only.
 - A copy doesn't pick up new sign-ins from your real profile. Sign in inside the agent window, or quit Chrome and run `add <profile> --recopy`.
-- Each open agent window uses about 1 GB of RAM.
+- Each open agent window is a separate Chrome. A fresh one with one simple page uses about 500 MB. Heavy sites and long uptime add more: one with Gmail open for a day measured 1.6 GB. Quit the window to free it.
 - Playwright's `connectOverCDP` doesn't work through the proxy. Use chrome-devtools-mcp.
 - Sessions are shared by design. Two Claude sessions that enable Runtime on the same tab at the same moment can race.
 
@@ -164,7 +165,7 @@ It returns `chromeRunning`, `chromePid`, `clients` and cache counts. Set `PROXY_
 ## Tests
 
 ```bash
-npm test                          # CLI unit tests
+npm test                          # CLI unit tests, and the proxy's local-tools-only guard
 node test/live-check.mjs <port>   # drives a real Chrome through a running proxy with its window closed
 ```
 
