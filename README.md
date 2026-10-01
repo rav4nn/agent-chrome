@@ -66,7 +66,9 @@ Always name the profile. Each one is signed in to different accounts, and withou
 1. Copies the profile into `~/Library/Application Support/agent-chrome/profiles/<slug>/`. It uses an APFS clone, so the copy is fast and takes no extra disk space until the two drift apart.
 2. Gives the copy a coloured theme (default `#D50000`), so you can tell the agent window from yours.
 3. Turns off sync in the copy for themes, typed URLs, tabs, tab groups, extensions and apps. The copy is its own sync device. Synced themes would push the agent colour back into your real profile, and agent history would land in it.
-4. Installs the proxy in `~/Library/Application Support/agent-chrome/runtime/` and a LaunchAgent, `io.github.rav4nn.agent-chrome.<slug>`, that starts it at login. Logs go to `~/Library/Logs/agent-chrome/<slug>.log`.
+4. Installs the proxy in `~/Library/Application Support/agent-chrome/runtime/` and a LaunchAgent, `io.github.rav4nn.agent-chrome.<slug>`, that starts it at login through a small launcher, `launchers/agent-chrome-<slug>`. Logs go to `~/Library/Logs/agent-chrome/<slug>.log`.
+
+   macOS then shows "agent-chrome-<slug> can run in the background". That is the proxy for that profile. It starts at login so the agent window can open when Claude asks for it, and it uses about 25 MB of RAM and no CPU while it waits. Activity Monitor lists it as `node`. You can turn it off in System Settings > General > Login Items & Extensions, but then Claude can't open that profile. `agent-chrome remove <slug>` removes it completely.
 5. Registers a user-scope MCP server, `chrome-<slug>`: chrome-devtools-mcp pointed at the proxy's port. It uses your global `chrome-devtools-mcp` if you have one, and `npx chrome-devtools-mcp@latest` if not. Without the `claude` CLI on your PATH, it prints the JSON to paste into `~/.claude.json`.
 
 Add `--dry-run` to see every file write and command without running any of them.

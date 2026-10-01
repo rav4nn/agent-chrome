@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
     CHROME_ROOT, argbFromHex, choosePort, isRealChromeMain, listProfiles, parsePlist,
-    patchPreferences, renderPlist, resolveProfile, slugify,
+    patchPreferences, renderLauncher, renderPlist, resolveProfile, slugify,
 } from '../bin/agent-chrome.mjs';
 
 const profiles = listProfiles({
@@ -73,6 +77,17 @@ test('plist round trip keeps spaces and &', () => {
         userDataDir: '/Users/a b/R&D <copy>',
         profileDir: 'Profile 5',
     });
+});
+
+test('launcher passes its arguments to the proxy, with spaces in paths kept', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent chrome launcher-'));
+    const proxy = path.join(dir, "it's proxy.mjs");
+    fs.writeFileSync(proxy, 'console.log(JSON.stringify(process.argv.slice(2)));');
+    const launcher = path.join(dir, 'agent-chrome-work');
+    fs.writeFileSync(launcher, renderLauncher(process.execPath, proxy), { mode: 0o755 });
+    const out = execFileSync(launcher, ['--user-data-dir', '/Users/a b/copy'], { encoding: 'utf8' });
+    assert.deepEqual(JSON.parse(out), ['--user-data-dir', '/Users/a b/copy']);
+    fs.rmSync(dir, { recursive: true });
 });
 
 test('chooses the first port not used and not listening', async () => {

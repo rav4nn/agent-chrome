@@ -14,6 +14,7 @@ export const CHROME_ROOT = path.join(HOME, 'Library/Application Support/Google/C
 export const HOME_DIR = path.join(HOME, 'Library/Application Support/agent-chrome');
 const RUNTIME_DIR = path.join(HOME_DIR, 'runtime');
 const PROFILES_DIR = path.join(HOME_DIR, 'profiles');
+const LAUNCHER_DIR = path.join(HOME_DIR, 'launchers');
 export const LOG_DIR = path.join(HOME, 'Library/Logs/agent-chrome');
 export const LABEL_PREFIX = 'io.github.rav4nn.agent-chrome.';
 const AGENTS_DIR = path.join(HOME, 'Library/LaunchAgents');
@@ -113,6 +114,13 @@ ${args.map((a) => `\t\t${str(a)}`).join('\n')}
 </dict>
 </plist>
 `;
+}
+
+// macOS names a login item after the file its LaunchAgent starts. Starting node directly
+// shows "node can run in the background"; this launcher makes it "agent-chrome-<slug>".
+// exec hands over to node, so no shell stays running.
+export function renderLauncher(node, proxy) {
+    return `#!/bin/sh\nexec ${quote(node)} ${quote(proxy)} "$@"\n`;
 }
 
 // Reads back what renderPlist wrote. The plist is the only state agent-chrome keeps.
@@ -263,6 +271,7 @@ function printProfiles(profiles, installed) {
 
 const uid = () => process.getuid();
 const serverName = (slug) => `chrome-${slug}`;
+const launcherFile = (slug) => path.join(LAUNCHER_DIR, `agent-chrome-${slug}`);
 
 // The LaunchAgent needs a path that outlives an npx or plugin cache, so the proxy runs
 // from its own copy under HOME_DIR.
@@ -374,11 +383,17 @@ async function cmdAdd(query, o) {
 
     say(`\nLaunchAgent`);
     const log = path.join(LOG_DIR, `${slug}.log`);
+    const launcher = launcherFile(slug);
+    const script = renderLauncher(nodePath(), path.join(RUNTIME_DIR, 'pipe-cdp-proxy.mjs'));
+    step(`write ${launcher}${DRY ? `\n${indent(script)}` : ''}`, () => {
+        fs.mkdirSync(LAUNCHER_DIR, { recursive: true });
+        fs.writeFileSync(launcher, script, { mode: 0o755 });
+        fs.chmodSync(launcher, 0o755); // an existing file keeps its old mode otherwise
+    });
     const xml = renderPlist({
         label,
         log,
-        args: [nodePath(), path.join(RUNTIME_DIR, 'pipe-cdp-proxy.mjs'), '--port', String(port),
-            '--user-data-dir', copyDir, '--profile-directory', profile.dir],
+        args: [launcher, '--port', String(port), '--user-data-dir', copyDir, '--profile-directory', profile.dir],
     });
     step(`$ mkdir -p ${quote(LOG_DIR)}`, () => fs.mkdirSync(LOG_DIR, { recursive: true }));
     step(`write ${plistFile}${DRY ? `\n${indent(xml)}` : ''}`, () => {
@@ -424,6 +439,9 @@ function cmdRemove(slug, o) {
     } else {
         say(`No LaunchAgent for ${slug}.`);
     }
+    // add writes the launcher before the plist, so a failed add can leave one alone.
+    const launcher = launcherFile(slug);
+    if (fs.existsSync(launcher)) step(`$ rm ${quote(launcher)}`, () => fs.rmSync(launcher));
     const claude = which('claude');
     if (claude) run(claude, ['mcp', 'remove', '-s', 'user', serverName(slug)], { allowFail: true });
     else say(`The claude CLI is not on PATH. Remove "${serverName(slug)}" from ~/.claude.json yourself.`);
