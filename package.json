@@ -5,7 +5,8 @@
   "type": "module",
   "main": "pipe-cdp-proxy.mjs",
   "scripts": {
-    "start": "node pipe-cdp-proxy.mjs"
+    "start": "node pipe-cdp-proxy.mjs",
+    "test": "node --test test/proxy-guard.test.mjs"
   },
   "dependencies": {
     "ws": "^8.20.0"
