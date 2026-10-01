@@ -43,6 +43,24 @@ Pick one route.
 
 After `add`, start a new Claude Code session (or resume one). The agent window opens on the first new tab.
 
+Installing the plugin alone gives Claude no browser yet. The browser tools appear after `add` and a new session.
+
+## Ask Claude
+
+Each profile you set up is an MCP server named `chrome-<slug>`, for example `chrome-work`. Name it in your prompt, and Claude uses that profile.
+
+| Step | Prompt |
+| --- | --- |
+| Set up (plugin route) | `Set up agent-chrome for one of my Chrome profiles.` |
+| First test, in a new session | `Open chrome-work and go to myaccount.google.com. Tell me which Google account is signed in. Don't click or change anything.` |
+| Everyday use | `Open chrome-work and go to reddit.com. Open the first 3 posts and summarise them.` |
+
+While the first test runs, keep typing in your terminal. The terminal stays in front, and the agent window (the one with the coloured theme) opens behind it.
+
+Then quit the agent window from the Dock and ask again: `Open chrome-work and go to example.com.` The window comes back behind your apps, still signed in.
+
+Always name the profile. Each one is signed in to different accounts, and without a name Claude asks which one you mean.
+
 ## What `add` does
 
 1. Copies the profile into `~/Library/Application Support/agent-chrome/profiles/<slug>/`. It uses an APFS clone, so the copy is fast and takes no extra disk space until the two drift apart.

@@ -405,7 +405,8 @@ ${DRY ? 'Dry run: nothing changed.' : 'Done.'}
   MCP server    ${server}
   Port          ${port}
   Profile copy  ${copyDir}
-Start a new Claude Code session (or resume one) to load the server. The agent window opens on the first new tab.`);
+Start a new Claude Code session (or resume one) to load the server. The agent window opens on the first new tab.
+Then try: "Open ${server} and go to example.com. Tell me the page title."`);
 }
 
 function cmdRemove(slug, o) {

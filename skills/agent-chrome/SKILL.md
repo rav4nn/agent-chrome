@@ -1,6 +1,6 @@
 ---
 name: agent-chrome
-description: Use the user's signed-in Chrome from Claude Code (their real browser profiles, logged-in sites, accounts they are already signed in to) through agent-chrome, in a background window that never takes focus. Also use to set that up, add or remove a profile, or check why a chrome-<name> MCP server is not working. macOS only.
+description: Use the user's signed-in Chrome from Claude Code (their real browser profiles, logged-in sites, accounts they are already signed in to) through agent-chrome, in a background window that never takes focus. Use it when the user says "open chrome-<name>" or "chrome <name>". Also use to set that up, add or remove a profile, or check why a chrome-<name> MCP server is not working. macOS only.
 ---
 
 # agent-chrome
@@ -21,7 +21,7 @@ If that file is missing (the skill was copied on its own), run `npx -y github:ra
 2. Ask the user which profile or profiles to set up. Don't pick one yourself.
 3. Tell the user to quit Chrome (Cmd+Q) first, so the copy is clean. If they won't quit it, `--force` copies anyway, but live databases may copy in a mixed state and the copy can lose sign-ins. Only pass `--force` after the user says yes to that.
 4. Run `add "<profile>"`. It accepts the folder, name or email. Useful options: `--name <slug>`, `--color <#rrggbb>`, `--dry-run` to show the plan first. If `add` stops, read its message: it says what to do.
-5. Tell the user to start a new Claude Code session (or resume one) so the new server loads.
+5. Tell the user to start a new Claude Code session (or resume one) so the new server loads. Then give them the first test prompt, with the real slug: `Open chrome-<slug> and go to myaccount.google.com. Tell me which Google account is signed in. Don't click or change anything.`
 
 Other commands:
 
@@ -35,7 +35,7 @@ Other commands:
 ## Use a profile
 
 - The tools are `mcp__chrome-<slug>__*` from chrome-devtools-mcp. They're deferred: load them with ToolSearch (for example `select:mcp__chrome-<slug>__new_page,mcp__chrome-<slug>__take_snapshot`) before the first call.
-- Only use a profile the user named. Each one is signed in to different accounts.
+- Only use a profile the user named. "chrome work", "chrome-work" and "the work Chrome" all mean the server `chrome-work`. Each one is signed in to different accounts. If the user names no profile and more than one is set up, ask which one. Run `status` to list them.
 - Open pages with `new_page` and `background: true`. The first new tab starts the agent window.
 - Work only in tabs you opened. Other Claude sessions share the agent window, so `list_pages` shows their tabs too. Use the page ID that your own `new_page` returned. Never select, navigate or close a tab that you didn't open.
 - Never close the agent window. Don't close its last tab and don't quit the browser. Only the user closes it. After they quit it, the tools report no pages, and the next `new_page` opens it again.
