@@ -19,7 +19,6 @@ export const LABEL_PREFIX = 'io.github.rav4nn.agent-chrome.';
 const AGENTS_DIR = path.join(HOME, 'Library/LaunchAgents');
 export const BASE_PORT = 9410;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
-const CHROME_BIN = 'Google Chrome.app/Contents/MacOS/Google Chrome';
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RUNTIME_FILES = ['pipe-cdp-proxy.mjs', 'package.json'];
 
@@ -137,8 +136,11 @@ export async function choosePort(used, isFree, start = BASE_PORT) {
 }
 
 // The user's own Chrome: the main process (no --type=) on Chrome's default data dir.
+// The program itself must be Chrome: a shell, grep or editor whose arguments name the Chrome
+// path is not Chrome. Path parts may hold spaces ("Google Chrome.app"), but never end in one.
+const CHROME_PROGRAM_RE = /^\/(?:[^/\n]*[^/\s]\/)*Google Chrome\.app\/Contents\/MacOS\/Google Chrome(?: |$)/;
 export function isRealChromeMain(line, chromeRoot = CHROME_ROOT) {
-    if (!line.includes(CHROME_BIN) || line.includes('--type=')) return false;
+    if (!CHROME_PROGRAM_RE.test(line) || line.includes('--type=')) return false;
     const dir = /--user-data-dir=(.+?)(?= --|$)/.exec(line)?.[1];
     return !dir || path.resolve(dir) === path.resolve(chromeRoot);
 }

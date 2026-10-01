@@ -89,4 +89,7 @@ test('spots the real Chrome main process only', () => {
     assert.equal(isRealChromeMain(`${bin} --user-data-dir=/Users/a/Library/Application Support/agent-chrome/profiles/w --remote-debugging-pipe`), false);
     assert.equal(isRealChromeMain(`${bin} --type=renderer`), false);
     assert.equal(isRealChromeMain('/usr/bin/grep Google Chrome'), false);
+    assert.equal(isRealChromeMain(`/usr/bin/less ${bin}`), false);
+    assert.equal(isRealChromeMain(`/bin/zsh -c ps | grep '${bin}'`), false);
+    assert.equal(isRealChromeMain(`/Users/a/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --flag`), true);
 });
