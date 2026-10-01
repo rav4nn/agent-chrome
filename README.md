@@ -102,6 +102,7 @@ Running `add` again for the same profile is safe. It keeps the existing copy and
 - Open pages with `new_page` and `background: true`. The first new tab starts Chrome.
 - Each session works only in the tabs it opened. Sessions share one window, so this keeps them out of each other's way.
 - Only you close the agent window. After you quit it, the tools report no pages. The next `new_page` opens it again.
+- When the last agent tab closes (Quit, the window's close button, or the last tab), the proxy exits that Chrome, so no empty Chrome stays in the Dock.
 - If a site shows you signed out, sign in inside the agent window.
 
 The plugin's skill tells Claude all of this.

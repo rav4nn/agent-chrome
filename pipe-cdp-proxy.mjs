@@ -211,7 +211,9 @@ function routeChromeMessage(msg) {
     } else if (msg.method === 'Target.targetInfoChanged' && msg.params?.targetInfo) {
         knownTargets.set(msg.params.targetInfo.targetId, msg.params.targetInfo);
     } else if (msg.method === 'Target.targetDestroyed' && msg.params?.targetId) {
+        const wasPage = knownTargets.get(msg.params.targetId)?.type === 'page';
         knownTargets.delete(msg.params.targetId);
+        if (wasPage) closeChromeIfNoPages();
     } else if (msg.method === 'Target.attachedToTarget' && msg.params?.sessionId) {
         knownSessions.set(msg.params.sessionId, {
             targetInfo: msg.params.targetInfo,
@@ -242,6 +244,26 @@ function routeChromeMessage(msg) {
     if (msg.method) {
         broadcastToRealClients(msg);
     }
+}
+
+const hasPage = () => [...knownTargets.values()].some((t) => t.type === 'page');
+
+// Chrome started with --no-startup-window and a debug pipe stays alive with no windows
+// until a DevTools client closes it, so a Quit (Dock or Cmd+Q) leaves an empty Chrome in
+// the Dock. When the last tab goes, close Chrome; the next new tab launches it again.
+// The check waits a moment so a tab that a client opens at the same time can appear.
+// ponytail: a tab opened later than that still races the close; that call fails and the
+// next one relaunches Chrome. Add an open/close lock if that ever bites.
+let closeTimer = null;
+function closeChromeIfNoPages() {
+    if (hasPage() || closeTimer) return;
+    closeTimer = setTimeout(() => {
+        closeTimer = null;
+        const opening = [...pendingRequests.values()].some((r) => r.method === 'Target.createTarget');
+        if (!chromeWritable || hasPage() || opening) return;
+        console.log('[Proxy] Last tab closed, closing Chrome');
+        cdpRequest('Browser.close').catch(() => {}); // Chrome exits before it answers
+    }, 500);
 }
 
 // Stale-request reaper
@@ -490,8 +512,7 @@ wss.on('connection', (clientWs) => {
             return;
         }
         if (msg.method === 'Target.createTarget') {
-            const hasPage = [...knownTargets.values()].some((t) => t.type === 'page');
-            msg.params = { ...msg.params, background: true, newWindow: !hasPage };
+            msg.params = { ...msg.params, background: true, newWindow: !hasPage() };
         }
         // Tabs are shared: an earlier client may already have Runtime enabled on this
         // session, and a repeat enable reports no execution contexts. Reset it first.
