@@ -82,6 +82,7 @@ Running `add` again for the same profile is safe. It keeps the existing copy and
 
 - The tools are `mcp__chrome-<slug>__*`, from chrome-devtools-mcp.
 - Open pages with `new_page` and `background: true`. The first new tab starts Chrome.
+- Each session works only in the tabs it opened. Sessions share one window, so this keeps them out of each other's way.
 - Only you close the agent window. After you quit it, the tools report no pages. The next `new_page` opens it again.
 - If a site shows you signed out, sign in inside the agent window.
 

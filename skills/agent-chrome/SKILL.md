@@ -37,6 +37,7 @@ Other commands:
 - The tools are `mcp__chrome-<slug>__*` from chrome-devtools-mcp. They're deferred: load them with ToolSearch (for example `select:mcp__chrome-<slug>__new_page,mcp__chrome-<slug>__take_snapshot`) before the first call.
 - Only use a profile the user named. Each one is signed in to different accounts.
 - Open pages with `new_page` and `background: true`. The first new tab starts the agent window.
+- Work only in tabs you opened. Other Claude sessions share the agent window, so `list_pages` shows their tabs too. Use the page ID that your own `new_page` returned. Never select, navigate or close a tab that you didn't open.
 - Never close the agent window. Don't close its last tab and don't quit the browser. Only the user closes it. After they quit it, the tools report no pages, and the next `new_page` opens it again.
 - If a site shows you signed out, ask the user to sign in inside the agent window (the one with the coloured theme), then carry on. The copy doesn't pick up new sign-ins from their real Chrome.
 - Use chrome-devtools-mcp tools only. Playwright can't connect through the proxy.
