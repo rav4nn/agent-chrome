@@ -24,6 +24,21 @@ agent-chrome lets Claude Code use a copy of your signed-in Chrome. The window op
 
 Free and open source. Needs macOS, Google Chrome, Node 18.3 or later, and Claude Code.
 
+## How it compares
+
+Headless Playwright never takes focus, but you can't see what it's doing. The other tools show you a window, then pull it in front of your work. agent-chrome gives you a window you can watch, and keeps it behind your terminal.
+
+| | **agent-chrome** | Playwright MCP<br><sub>headless</sub> | Playwright MCP<br><sub>extension mode</sub> | Chrome DevTools MCP<br><sub>default setup</sub> |
+| --- | :---: | :---: | :---: | :---: |
+| **You can watch it work**<br><sub>Open the window any time and see what Claude is doing, then fix your prompt or skill.</sub> | ✅ | ❌ | ✅ | ✅ |
+| **You can take over a login**<br><sub>When Claude stops at a sign-in, a 2FA code or a CAPTCHA, click in and finish it.</sub> | ✅ | ❌ | ✅ | ✅ |
+| **You keep typing**<br><sub>The browser never jumps in front of your terminal.</sub> | ✅ | ✅ | ❌ | ❌ |
+| **Uses your Chrome sign-ins**<br><sub>The accounts you already use in Chrome are there on the first run.</sub> | ✅ | ❌ | ✅ | ❌<br><sub>separate profile</sub> |
+| **Looks like a normal browser**<br><sub>Some sites, like X and LinkedIn, flag headless and automated browsers.</sub> | ✅ | ➖<br><sub>often flagged</sub> | ✅ | ➖<br><sub>automation flag on</sub> |
+| **Sessions share one browser**<br><sub>Several Claude Code sessions use the same signed-in window at once.</sub> | ✅ | ❌<br><sub>profile lock</sub> | ✅ | ❌<br><sub>profile lock</sub> |
+
+✅ yes &nbsp; ➖ partly &nbsp; ❌ no. Default setups on macOS, checked October 2026. Chrome DevTools MCP can attach to your own Chrome with `--autoConnect`.
+
 ## Set it up in five steps
 
 About two minutes.
@@ -163,6 +178,15 @@ Three patterns let many MCP clients share one pipe:
 </details>
 
 ## Good to know
+
+<details>
+<summary><b>Why not run Playwright headless?</b></summary>
+
+<br>
+
+You can't see a headless browser. With agent-chrome you can open the red window any time, watch what Claude does, and fix your prompt or skill when it goes wrong. If it stops at a login, a 2FA code or a CAPTCHA, you click in and finish that step yourself. Playwright also uses its own profile, so your Chrome sign-ins aren't there, and you can't sign in to a window you can't see. agent-chrome uses a copy of your real, signed-in Chrome.
+
+</details>
 
 <details>
 <summary><b>Does Claude use my real Chrome profile?</b></summary>
