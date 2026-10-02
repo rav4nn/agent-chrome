@@ -189,6 +189,33 @@ You can't see a headless browser. With agent-chrome you can open the red window 
 </details>
 
 <details>
+<summary><b>Can websites tell that Claude is driving the browser?</b></summary>
+
+<br>
+
+Sometimes. agent-chrome starts Chrome with `--disable-blink-features=AutomationControlled`, so `navigator.webdriver` is false and the cheapest check fails. But a site can still spot the attached debugger, and it can watch how the page gets used: clicks with no mouse movement, text that appears all at once, actions faster than a person. Your real profile, with its history and cookies, helps a lot. It doesn't make Claude invisible.
+
+</details>
+
+<details>
+<summary><b>Can I use stealth Chrome instead?</b></summary>
+
+<br>
+
+For hiding automation, stealth builds like Patchright go further than agent-chrome. They hide debugger traces that agent-chrome doesn't. But they don't fix focus or sharing. The tool that launches the browser owns it. Over a pipe, only that one Claude session can drive it, and a second session hits the profile lock. Over a debug port, several sessions can connect, but that's the path that pulls Chrome to the front on macOS. agent-chrome's proxy holds the pipe and lets every session share it. And point stealth at real Chrome, not Chromium: Chromium can't read the cookies in a copied Chrome profile, so you'd start signed out.
+
+</details>
+
+<details>
+<summary><b>What about computer use?</b></summary>
+
+<br>
+
+Computer use moves your real mouse and types with your keyboard, so you can't work while it runs. It reads a screenshot at every step, which makes it slow, and one screen means one agent at a time. agent-chrome works in a window behind yours, and you keep your keyboard.
+
+</details>
+
+<details>
 <summary><b>Does Claude use my real Chrome profile?</b></summary>
 
 <br>
