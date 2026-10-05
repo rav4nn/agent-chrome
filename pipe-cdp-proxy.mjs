@@ -164,6 +164,7 @@ const pendingRequests = new Map();   // proxyId → { clientWs, originalId, meth
 const clientState = new Map();       // clientWs → { proxyIds: Set, discoveryEnabled: bool, autoAttachEnabled: bool }
 const knownTargets = new Map();      // targetId → targetInfo (latest)
 const knownSessions = new Map();     // sessionId → { targetInfo, waitingForDebugger }
+let defaultContextId;                // Chrome's default browser context, set at each launch
 
 function getOrCreateState(clientWs) {
     if (!clientState.has(clientWs)) {
@@ -246,7 +247,10 @@ function routeChromeMessage(msg) {
     }
 }
 
-const hasPage = () => [...knownTargets.values()].some((t) => t.type === 'page');
+// With a context id, only pages in that browser context count: Chrome opens a tab only in a
+// window of the same context, so a context without a page needs newWindow (see createTarget).
+const hasPage = (contextId) => [...knownTargets.values()].some((t) =>
+    t.type === 'page' && (!contextId || t.browserContextId === contextId));
 
 // Chrome started with --no-startup-window and a debug pipe stays alive with no windows
 // until a DevTools client closes it, so a Quit (Dock or Cmd+Q) leaves an empty Chrome in
@@ -321,6 +325,7 @@ async function enableProxyDiscovery() {
         waitForDebuggerOnStart: false,
         flatten: true,
     });
+    defaultContextId = (await cdpRequest('Target.getBrowserContexts')).result?.defaultBrowserContextId;
     console.log('[Proxy] Discovery + auto-attach enabled by proxy itself');
 }
 
@@ -512,7 +517,8 @@ wss.on('connection', (clientWs) => {
             return;
         }
         if (msg.method === 'Target.createTarget') {
-            msg.params = { ...msg.params, background: true, newWindow: !hasPage() };
+            const contextId = msg.params?.browserContextId ?? defaultContextId;
+            msg.params = { ...msg.params, background: true, newWindow: !hasPage(contextId) };
         }
         // Tabs are shared: an earlier client may already have Runtime enabled on this
         // session, and a repeat enable reports no execution contexts. Reset it first.
