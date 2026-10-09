@@ -510,9 +510,9 @@ wss.on('connection', (clientWs) => {
             return;
         }
 
-        // Keep Chrome from activating: foreground tabs and bringToFront pull
+        // Keep Chrome from activating: foreground tabs, bringToFront and activateTarget pull
         // Chrome.app forward and switch macOS Spaces even over the pipe.
-        if (msg.method === 'Page.bringToFront') {
+        if (msg.method === 'Page.bringToFront' || msg.method === 'Target.activateTarget') {
             if (msg.id !== undefined) safeSend(clientWs, { id: msg.id, result: {}, sessionId: msg.sessionId });
             return;
         }

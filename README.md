@@ -395,7 +395,7 @@ agent-chrome is a fork of [mimkorn/chrome-pipe-proxy](https://github.com/mimkorn
 - `--profile-directory` picks the Chrome profile inside `--user-data-dir`.
 - Chrome starts only when a client opens a tab or browser context. A connect, a discovery call or a page list while Chrome is down gets an empty browser, not a launch.
 - No auto-restart. When you quit Chrome, the proxy drops its clients, and a reconnect doesn't bring the window back.
-- New tabs open in the background. The proxy opens a new window only when none exists, and answers `Page.bringToFront` itself. Both used to raise the window on macOS, even over the pipe.
+- New tabs open in the background. The proxy opens a new window only when none exists, and answers `Page.bringToFront` and `Target.activateTarget` itself. All of these used to raise the window on macOS, even over the pipe.
 - The proxy sends `Runtime.disable` before a client's `Runtime.enable` on a shared tab, so a later session can take over a tab an earlier one left open.
 - Each client's messages keep their order across the launch wait, and a malformed message no longer stops the queue.
 - Chrome launches with no extensions, no startup window and no throttling of a window that sits behind other apps.
