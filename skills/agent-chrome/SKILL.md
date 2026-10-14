@@ -44,5 +44,6 @@ Other commands:
   1. Run `sync <slug> --site <domain>` (for example `sync work --site elevenlabs.io`). It copies that site's cookies and Local Storage into the open agent window. Then reload your tab.
   2. If the site still shows you signed out, and the `sync` output says IndexedDB needs a restart, ask the user before you run `sync <slug> --site <domain> --restart`. It closes the agent window, and with it the tabs of other sessions.
   3. Only then ask the user to sign in inside the agent window (the one with the coloured theme), then carry on.
+- When the user asks to sync a site's login ("sync my udemy.com login to chrome-work"), run `sync <slug> --site <domain>` at once, even if the agent window already shows an account. This also covers a site the agent window never signed in to, and a site where the user switched accounts in their real Chrome. `sync` replaces that site's data in the copy, so the agent window gets the account the real Chrome uses now, and the copy's own sign-in for that site is gone. Other sites don't change. Then reload the page and report which account shows.
 - Use chrome-devtools-mcp tools only. Playwright can't connect through the proxy.
 - If the tools fail to connect, run `status` and report what it shows.
