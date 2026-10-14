@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { normalizeSite, syncSites } from '../lib/site-sync.mjs';
 
 const HOME = os.homedir();
 export const CHROME_ROOT = path.join(HOME, 'Library/Application Support/Google/Chrome');
@@ -38,6 +39,12 @@ const USAGE = `Usage: agent-chrome <command>
                                 unless you pass --delete-profile.
   status                        Show each installed profile's proxy, window and server.
   update [--dry-run]            Refresh the proxy code and restart every proxy.
+  sync <slug> --site <domain> [--site <domain> ...] [--restart] [--dry-run]
+                                Copy the sites' sign-ins (cookies, Local Storage, IndexedDB)
+                                from your real Chrome profile into the agent copy. Subdomains
+                                are included. With the agent window open, cookies and Local
+                                Storage go in live; IndexedDB needs --restart, which closes
+                                the agent window and all its tabs.
 
 <profile> is a profile folder ("Profile 5"), display name or email.`;
 
@@ -463,6 +470,25 @@ async function cmdStatus() {
     table(rows);
 }
 
+async function cmdSync(slug, o) {
+    const sites = (o.site ?? []).map(normalizeSite);
+    if (!sites.length) die('Usage: agent-chrome sync <slug> --site <domain>. Pass at least one --site.');
+    const mine = listInstalled().find((i) => i.slug === slug);
+    if (!mine) die(`No agent-chrome profile named "${slug}". Run agent-chrome status to list them.`);
+    if (!mine.userDataDir || !mine.profileDir || !mine.port) die(`The LaunchAgent for ${slug} is incomplete. Run agent-chrome add again.`);
+    const { failed } = await syncSites({
+        realDir: path.join(CHROME_ROOT, mine.profileDir),
+        copyDir: path.join(mine.userDataDir, mine.profileDir),
+        userDataDir: mine.userDataDir,
+        port: mine.port,
+        sites,
+        restart: Boolean(o.restart),
+        dryRun: DRY,
+        log: say,
+    });
+    if (failed) process.exitCode = 1;
+}
+
 function cmdUpdate() {
     installRuntime();
     const installed = listInstalled();
@@ -483,6 +509,8 @@ export async function main(argv) {
             recopy: { type: 'boolean' },
             'dry-run': { type: 'boolean' },
             'delete-profile': { type: 'boolean' },
+            site: { type: 'string', multiple: true },
+            restart: { type: 'boolean' },
             help: { type: 'boolean', short: 'h' },
         },
     });
@@ -496,6 +524,7 @@ export async function main(argv) {
         case 'remove': return arg ? cmdRemove(arg, o) : die('Usage: agent-chrome remove <slug>. Run agent-chrome status to list them.');
         case 'status': return cmdStatus();
         case 'update': return cmdUpdate();
+        case 'sync': return arg ? cmdSync(arg, o) : die('Usage: agent-chrome sync <slug> --site <domain>. Run agent-chrome status to list slugs.');
         default: die(`Unknown command "${cmd}". Run agent-chrome --help.`);
     }
 }

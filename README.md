@@ -229,7 +229,7 @@ No. It uses a copy. Chrome refuses remote debugging on its default data folder (
 
 <br>
 
-The copy doesn't pick up new sign-ins. Sign in inside the red window once, or quit Chrome and run `add "Work" --recopy` for a fresh copy.
+The copy doesn't pick up new sign-ins by itself. Run `agent-chrome sync work --site elevenlabs.io` to copy that one site's sign-in from your real profile into the copy. It works while both windows are open, and it changes nothing for other sites. If the site still shows you signed out, sign in inside the red window once, or quit Chrome and run `add "Work" --recopy` for a fresh copy.
 
 </details>
 
@@ -316,6 +316,7 @@ Ask Claude to remove agent-chrome for chrome-work, or run `npx github:rav4nn/age
 | `remove <slug>` | Stops the proxy, deletes its LaunchAgent and unregisters the MCP server. Keeps the copy |
 | `status` | One row per installed slug: port, proxy up, agent window open, MCP server registered |
 | `update` | Refreshes the proxy code in the runtime folder and restarts every proxy |
+| `sync <slug> --site <domain>` | Copies the site's sign-in (cookies, Local Storage, IndexedDB) from your real profile into the copy. Repeat `--site` for more sites |
 
 Options for `add`:
 
@@ -328,7 +329,7 @@ Options for `add`:
 | `--force` | off | Copy while Chrome is running. Live databases may copy in a mixed state, and the copy can lose sign-ins |
 | `--dry-run` | off | Print the plan, change nothing |
 
-`remove` takes `--delete-profile` to delete the copy too, and `--dry-run`. `update` takes `--dry-run`.
+`remove` takes `--delete-profile` to delete the copy too, and `--dry-run`. `update` takes `--dry-run`. `sync` takes `--restart` and `--dry-run` (see below).
 
 Running `add` again for the same profile is safe. It keeps the existing copy and port, and rewrites the theme, LaunchAgent and MCP server.
 
@@ -342,6 +343,20 @@ Running `add` again for the same profile is safe. It keeps the existing copy and
 
 Add `--dry-run` to see every file write and command without running any of them.
 
+### What `sync` does
+
+`agent-chrome sync <slug> --site <domain> [--site <domain> ...] [--restart] [--dry-run]` copies the sign-in state of the named sites from the real profile that `<slug>` came from. A site includes its subdomains: `--site elevenlabs.io` covers `elevenlabs.io`, `.elevenlabs.io` and `api.elevenlabs.io`, but not `notelevenlabs.io`. Cookies of a parent domain (`.example.com` for `--site app.example.com`) are not copied. Other sites in the copy stay as they are.
+
+It reads your real profile from snapshots in a temp folder, so your Chrome can stay open. It never writes to your real profile, and it never prints a cookie value or a key. A sign-in can live in three places:
+
+| Store | Agent window open | Agent window closed |
+| --- | --- | --- |
+| Cookies | Set live over CDP. The cookies are decrypted with the "Chrome Safe Storage" key, so macOS may ask once for Keychain access | Merged into the copy's `Cookies` database. Stops if the database versions differ |
+| Local Storage | Set live, one origin at a time, in a background tab that runs none of the site's code. The values come from a headless Chrome that reads a snapshot of your Local Storage | The same. The tab opens the agent window, and the window closes again after |
+| IndexedDB | Not copied. The output says so. `--restart` closes the agent window, copies, and the next `new_page` reopens it. A restart closes every tab in the agent window, including other sessions' tabs | The site's per-origin folders are copied |
+
+The output is one row per site: cookies copied (and how), IndexedDB origins copied or skipped, and Local Storage origins and keys copied. Reload the site's tab afterwards. `--dry-run` prints the plan and changes nothing. `sync` stops with a message when the slug is unknown, the real profile folder is missing, or a site matches nothing in the real profile.
+
 ### Using it from Claude
 
 - The tools are `mcp__chrome-<slug>__*`, from chrome-devtools-mcp.
@@ -349,7 +364,7 @@ Add `--dry-run` to see every file write and command without running any of them.
 - Each session works only in the tabs it opened. That's a rule in the plugin's skill, not something the proxy enforces: all sessions share one window and can see and drive every tab in it.
 - Only you close the agent window. After you quit it, the tools report no pages. The next `new_page` opens it again.
 - When the last agent tab closes (Quit, the window's close button, or the last tab), the proxy exits that Chrome, so no empty Chrome stays in the Dock.
-- If a site shows you signed out, sign in inside the agent window.
+- If a site shows you signed out, Claude runs `sync <slug> --site <domain>` and reloads. If that is not enough, it asks you before a `--restart`, and then asks you to sign in inside the agent window.
 
 The plugin's skill tells Claude all of this.
 
@@ -382,7 +397,7 @@ It returns `chromeRunning`, `chromePid`, `clients` and cache counts. Set `PROXY_
 ### Tests
 
 ```bash
-npm test                          # CLI unit tests, and the proxy's local-tools-only guard
+npm test                          # CLI and sync unit tests, and the proxy's local-tools-only guard
 node test/live-check.mjs <port>   # drives a real Chrome through a running proxy with its window closed
 ```
 

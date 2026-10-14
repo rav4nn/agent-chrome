@@ -28,6 +28,7 @@ Other commands:
 | Command | What it does |
 | --- | --- |
 | `status` | Each installed slug: port, proxy up, agent window open, MCP server registered |
+| `sync <slug> --site <domain>` | Copies one site's sign-in from the user's real Chrome profile into the copy. See "Use a profile" |
 | `update` | Refreshes the proxy code and restarts every proxy (closes open agent windows) |
 | `remove <slug>` | Stops the proxy and unregisters the server. Keeps the profile copy |
 | `remove <slug> --delete-profile` | Also deletes the copy. Run it only when the user asks to delete it |
@@ -39,6 +40,9 @@ Other commands:
 - Open pages with `new_page` and `background: true`. The first new tab starts the agent window.
 - Work only in tabs you opened. Other Claude sessions share the agent window, so `list_pages` shows their tabs too. Use the page ID that your own `new_page` returned. Never select, navigate or close a tab that you didn't open.
 - Never close the agent window. Don't close its last tab and don't quit the browser. Only the user closes it. After they quit it, the tools report no pages, and the next `new_page` opens it again.
-- If a site shows you signed out, ask the user to sign in inside the agent window (the one with the coloured theme), then carry on. The copy doesn't pick up new sign-ins from their real Chrome.
+- The copy doesn't pick up new sign-ins from the user's real Chrome by itself. If a site shows you signed out:
+  1. Run `sync <slug> --site <domain>` (for example `sync work --site elevenlabs.io`). It copies that site's cookies and Local Storage into the open agent window. Then reload your tab.
+  2. If the site still shows you signed out, and the `sync` output says IndexedDB needs a restart, ask the user before you run `sync <slug> --site <domain> --restart`. It closes the agent window, and with it the tabs of other sessions.
+  3. Only then ask the user to sign in inside the agent window (the one with the coloured theme), then carry on.
 - Use chrome-devtools-mcp tools only. Playwright can't connect through the proxy.
 - If the tools fail to connect, run `status` and report what it shows.
